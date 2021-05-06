@@ -22,7 +22,6 @@
 namespace cppflow {
 
 
-
 inline tensor abs(const tensor& x) {
 
     // Define Op
@@ -22365,7 +22364,7 @@ inline tensor split(const tensor& split_dim, const tensor& value, int64_t num_sp
 }
 
 
-inline tensor split_v(const tensor& value, const tensor& size_splits, const tensor& split_dim, int64_t num_split, datatype Tlen=static_cast<datatype>(9)) {
+inline std::vector<tensor> split_v(const tensor& value, const tensor& size_splits, const tensor& split_dim, int64_t num_split, datatype Tlen=static_cast<datatype>(9)) {
 
     // Define Op
     std::unique_ptr<TFE_Op, decltype(&TFE_DeleteOp)> op(TFE_NewOp(context::get_context(), "SplitV", context::get_status()), &TFE_DeleteOp);
@@ -22390,11 +22389,18 @@ inline tensor split_v(const tensor& value, const tensor& size_splits, const tens
     TFE_OpSetAttrType(op.get(), "Tlen", Tlen);
 
     // Execute Op
-    int num_outputs_op = 1;
-    TFE_TensorHandle* res[1] = {nullptr};
+    int num_outputs_op = (int)num_split;
+    TFE_TensorHandle* res[num_outputs_op];
+    res[num_outputs_op] = {nullptr};
     TFE_Execute(op.get(), res, &num_outputs_op, context::get_status());
     status_check(context::get_status());
-    return tensor(res[0]);
+
+    std::vector<tensor> result;
+    result.reserve(num_split);
+    for (int i=0; i<num_split; i++) {
+        result.emplace_back(tensor(TFE_TensorHandleResolve(res[i], context::get_status())));
+    }
+    return result;
 }
 
 
@@ -26590,6 +26596,36 @@ inline tensor unique_dataset(const tensor& input_dataset, const std::vector<data
     TFE_Execute(op.get(), res, &num_outputs_op, context::get_status());
     status_check(context::get_status());
     return tensor(res[0]);
+}
+
+
+inline std::vector<tensor> unique_with_counts(const tensor& x) {
+
+    // Define Op
+    std::unique_ptr<TFE_Op, decltype(&TFE_DeleteOp)> op(TFE_NewOp(context::get_context(), "UniqueWithCounts", context::get_status()), &TFE_DeleteOp);
+    status_check(context::get_status());
+
+    // Required input arguments
+
+    TFE_OpAddInput(op.get(), x.tfe_handle.get(), context::get_status());
+    status_check(context::get_status());
+
+
+    // Attributes
+
+
+    // Execute Op
+    int num_outputs_op = 3;
+    TFE_TensorHandle* res[3] = {nullptr};
+    TFE_Execute(op.get(), res, &num_outputs_op, context::get_status());
+    status_check(context::get_status());
+
+    std::vector<tensor> result;
+    result.reserve(2);
+    result.emplace_back(tensor(TFE_TensorHandleResolve(res[0], context::get_status())));
+    result.emplace_back(tensor(TFE_TensorHandleResolve(res[2], context::get_status())));
+
+    return result;
 }
 
 
